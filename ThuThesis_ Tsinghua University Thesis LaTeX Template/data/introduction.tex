@@ -1,0 +1,59 @@
+\chapter{文献回顾}
+
+\section{傅立叶切片定理}
+
+
+\section{变分编码器}
+\begin{align}
+    \operatorname{ELBO}=\mathbb{E}_{q_{\phi}(z|x)}\big[\log(\frac{p_{\theta}(z,x)}{q_{\phi}(z|x)})\big]
+\end{align}
+\begin{equation}
+    \mathcal{L}(\theta, \phi)=\mathbb{E}_{q_\phi(z \mid x)}\left[\log p_\theta(x \mid z)\right]-\mathcal{D}_{K L}\left[q_\phi(z \mid x) \| p(z)\right]
+    \end{equation}
+\section{正则流}
+正则流（Normalization Flow）是基于变分编码器的结构基础上提出的（见Improving Variational Auto-Encoders
+using Householder Flow）用来逼近真实的隐藏变量的先验分布$p_{\theta}(z)$。首先先由样本$x$生成$z_0$的简单分布
+（一般设为正态分布，由$x$生成$z_0$分布的均值和方差）。然后，对$z_0$进行一系列可逆变换$f^{(t)},t=1,2,\dots,T$. 一旦我们选定了转换函数
+$f^{(t)}$， 我们可以计算出其雅可比矩阵行列式。根据VAE模型的定义，我们的优化目标转换为如下目标：
+\begin{equation}
+    \ln p(\mathbf{x}) \geq \mathbb{E}_{q\left(\mathbf{z}^{(0)} \mid \mathbf{x}\right)}\left[\ln p\left(\mathbf{x} \mid \mathbf{z}^{(T)}\right)+\sum_{t=1}^T \ln \left|\operatorname{det} \frac{\partial \mathbf{f}^{(t)}}{\partial \mathbf{z}^{(t-1)}}\right|\right]-\mathrm{KL}\left(q\left(\mathbf{z}^{(0)} \mid \mathbf{x}\right) \| p\left(\mathbf{z}^{(T)}\right)\right)
+    \label{NF objective}
+    \end{equation}
+正则流可以用来逼近不同类型的VAE模型中的后验分布，只需要选取合适的转换函数$f^{(t)}$，不需要对编码器和解码器的结构进行修改。
+\section{扩散模型}
+扩散概率模型在图像生成领域已经被证明是有效的生成模型，但是其缺点在于缺乏低维的有效隐藏变量$z$。然而，VAE模型通常具有低维有效的隐藏变量，可以通过结合两者来更加有效地
+获得对高维数据分布的逼近。
+\begin{equation}
+    q\left(x_{1: T} \mid x_0\right)=\prod_{t=1}^T q\left(x_t \mid x_{t-1}\right)
+    \end{equation}
+
+    \begin{equation}
+        q\left(x_t \mid x_{t-1}\right)=\mathcal{N}\left(\sqrt{1-\beta_t} x_{t-1}, \beta_t I\right)
+        \end{equation}
+        \begin{equation}
+            q\left(x_t \mid x_0\right)=\mathcal{N}\left(\sqrt{\bar{\alpha}_t} x_0,\left(1-\overline{\alpha_t}\right) I\right) \text { 其中 } \alpha_t=\left(1-\beta_t\right) \text { 以及 } \bar{\alpha}_t=\prod_t \alpha_t
+            \end{equation}
+    正向传播的后验分布同样可以被给出：
+    \begin{equation}
+        q\left(x_{t-1} \mid x_t, x_0\right)=\mathcal{N}\left(\tilde{\mu}_t\left(x_t, x_0\right), \tilde{\beta}_t\right)
+        \end{equation}
+        \begin{equation}
+            \text {     其中 } \tilde{\mu}_t\left(x_t, x_0\right)=\frac{\sqrt{\bar{\alpha}_{t-1}} \beta_t}{1-\bar{\alpha}_t} x_0+\frac{\sqrt{\alpha_t}\left(1-\bar{\alpha}_{t-1}\right)}{1-\bar{\alpha}_t} x_t
+            \end{equation}
+            \begin{equation}
+                \text { 以及 } \quad \tilde{\beta}_t=\frac{1-\bar{\alpha}_{t-1}}{1-\bar{\alpha}_t} \beta_t
+                \end{equation}
+以上为正向Markov过程所满足的条件概率分布性质，在随机优化问题中为了优化参数需要对逆向传播过程进行建模。
+逆向传播过程同样可以被参数化，此处使用高斯转移分布来进行此一阶Markov逆向传播过程，满足如下表达式：
+\begin{equation}
+    p\left(x_{0: T}\right)=p\left(x_T\right) \prod_{t=1}^T p_\theta\left(x_{t-1} \mid x_t\right)
+    \end{equation}
+    \begin{equation}
+        p_\theta\left(x_{t-1} \mid x_t\right)=\mathcal{N}\left(\mu_\theta\left(x_t, t\right), \Sigma_\theta\left(x_t, t\right)\right)
+        \end{equation}
+选取足够大的$T$值与合适的递减序列$\{\beta_t\}_{t\geq 1}$， 条件概率分布$q(x_{T}|x_0)$可以足够接近标准高斯分布。
+整个概率系统可以通过变分推断来进行端到端的训练，从而优化参数。
+逆向传播过程的参数以最大化如下函数从而优化模型参数：
+\begin{equation}
+    \mathbb{E}_q[\underbrace{\mathcal{D}_{K L}\left(q\left(x_T \mid x_0\right) \| p\left(x_T\right)\right)}_{L_T}+\sum_{t>1} \underbrace{\mathcal{D}_{K L}\left(q\left(x_{t-1} \mid x_t, x_0\right) \| p_\theta\left(x_{t-1} \mid x_t\right)\right)}_{L_{t-1}}-\underbrace{\log p_\theta\left(x_0 \mid x_1\right)}_{L_0}]
+    \end{equation}
